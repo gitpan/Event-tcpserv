@@ -4,20 +4,20 @@ use Test qw($ntest ok plan); plan test => 5;
 use Event 0.30;
 use IO::Socket;
 
-my $port = 32123;
-
-my $demo_bug=0; # demonstrates mysterious typemap bug
+my $demo_bug=0; # demonstrates mysterious bug (5.005_54 & Event 0.30)
 if ($demo_bug) {
+    require Carp;
+    Carp->import('verbose');
     $Event::DebugLevel = 4;
     $Event::Eval = 1;
     $Event::DIED = sub { 
 	Event::unloop_all();
-	goto &Event::default_exception_handler
+	goto &Event::verbose_exception_handler
     };
 }
 
 # if bind() fails, then what? XXX
-
+my $port = 32123;
 Event->tcpserv(e_desc => 'spin', e_port => $port, e_cb => sub {
 		   my ($e) = @_;
 		   return '' if $demo_bug;
@@ -45,16 +45,14 @@ if (fork == 0) {
 	|| die "can't connect to port $port on localhost: $!";
     $mom->autoflush(1);
     print $mom "yes\nno\n";
-    ok <$mom>, "yes!\n" if !$demo_bug;
+    ok <$mom>, "yes!\n"  if !$demo_bug;
     ok <$mom>, "maybe\n" if !$demo_bug;
     print $mom "zog\n";
-    ok <$mom>, "?\n" if !$demo_bug;
+    ok <$mom>, "?\n"     if !$demo_bug;
     print $mom "exit\n";
     exit;
 }
 
 Event::loop();
-
-wait;
-$ntest += 3;
+wait; $ntest += 3;
 ok 1;

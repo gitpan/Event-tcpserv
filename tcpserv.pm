@@ -6,7 +6,7 @@ use Socket;
 use Event 0.30;
 use Event::Watcher qw(R W T);
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 'Event::Watcher'->register;
 
@@ -33,7 +33,7 @@ sub new {
 	       accept $sock, $e->{e_fd} or return;
 	       my $c = Event->
 		   io(e_desc => $e->{e_desc}.' '.fileno($sock), e_fd => $sock,
-		      e_prio => $e->{e_prio}, e_poll => R,
+		      e_prio => $e->{e_prio}, e_poll => R, e_reentrant => 0,
 		      e_timeout => $timeout, e_cb => sub {
 			  my ($e) = @_;
 			  if ($e->{e_got} & T) {
