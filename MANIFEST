@@ -1,0 +1,5 @@
+MANIFEST
+MANIFEST.SKIP
+Makefile.PL
+t/spin.t
+tcpserv.pm
