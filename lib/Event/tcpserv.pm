@@ -3,10 +3,10 @@ package Event::tcpserv;
 use Carp;
 use Symbol;
 use Socket;
-use Event 0.30;
+use Event 0.32;
 use Event::Watcher qw(R W T);
 use vars qw($VERSION);
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 'Event::Watcher'->register;
 

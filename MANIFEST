@@ -1,7 +1,8 @@
 MANIFEST
 MANIFEST.SKIP
 Makefile.PL
+README
 TODO
-demo/TcpSession.pm
+lib/Event/TcpSession.pm
+lib/Event/tcpserv.pm
 t/spin.t
-tcpserv.pm

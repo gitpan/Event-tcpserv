@@ -1,8 +1,11 @@
 use strict;
-package TcpSession;
+package Event::TcpSession;
+use Carp;
 use Socket;
 use Symbol;
 use Event::Watcher qw(R W T);
+use vars qw($VERSION);
+$VERSION = '0.01';
 
 # e_timeout is only set when:
 # - trying to reconnect
@@ -18,7 +21,7 @@ sub new {
     $o->{timeout} = delete $arg{timeout} || 20;
     $o->{io} = Event->io(e_desc => "$host\@$o->{port}",
 			 e_cb => [$o, 'io'], e_poll => R);
-    $o->{connected}=0;
+    $o->{connected}=1;  #assume there wont be a problem
     $o->{q} = [];
     $o->{txn} = $$;
     $o->reconnect;
@@ -96,6 +99,10 @@ sub io {
 
 sub add {
     my ($o, $op, $cb) = @_;
+    if ($op !~ m/\n$/) {
+	carp "op must be terminated with a newline";
+	$op .= "\n";
+    }
     push @{$o->{q}}, { op=>$op, cb=>$cb };
     $o->process_queue
 	if !$o->{cur};
@@ -131,7 +138,6 @@ sub process_queue {
 __END__
 
 This is a module I whipped up to do some basic remote procedure calls
-between processes.  It really needs to be packaged better before being
-added to a library.
+between processes.  It really needs better documentation!
 
 -j
