@@ -3,10 +3,10 @@ package Event::tcpserv;
 use Carp;
 use Symbol;
 use Socket;
-use Event 0.32;
+use Event 0.38;
 use Event::Watcher qw(R W T);
 use vars qw($VERSION);
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 'Event::Watcher'->register;
 
@@ -27,43 +27,45 @@ sub new {
     bind($sock, sockaddr_in($port, INADDR_ANY)) or die "bind: $!";
     listen($sock, SOMAXCONN)                    or die "listen: $!";
     Event->
-	io(%arg, e_fd => $sock, e_poll => R, e_cb => sub {
+	io(%arg, e_fd => $sock, e_poll => R, e_max_cb_tm => 5, e_cb => sub {
 	       my ($e) = @_;
+	       my $w=$e->w;
 	       my $sock = gensym;
-	       accept $sock, $e->{e_fd} or return;
+	       accept $sock, $w->{e_fd} or return;
 	       my $c = Event->
-		   io(e_desc => $e->{e_desc}.' '.fileno($sock), e_fd => $sock,
+		   io(e_desc => $w->{e_desc}.' '.fileno($sock), e_fd => $sock,
 		      e_prio => $e->{e_prio}, e_poll => R, e_reentrant => 0,
-		      e_timeout => $timeout, e_cb => sub {
+		      e_timeout => $timeout, e_max_cb_tm => 30, e_cb => sub {
 			  my ($e) = @_;
+			  my $w = $e->w;
 			  if ($e->{e_got} & T) {
-			      close $e->{e_fd};
-			      $e->cancel;
+			      close $w->{e_fd};
+			      $w->cancel;
 			      return;
 			  }
 			  if ($e->{e_got} & R) {
-			      if (!sysread $e->{e_fd}, $e->{e_ibuf}, 8192,
-				  length($e->{e_ibuf}))
+			      if (!sysread $w->{e_fd}, $w->{e_ibuf}, 8192,
+				  length($w->{e_ibuf}))
 			      {
-				  close $e->{e_fd};
-				  $e->cancel;
+				  close $w->{e_fd};
+				  $w->cancel;
 				  return;
 			      }
-			      $e->{e_obuf} .= $e->{e_readcb}->($e);
+			      $w->{e_obuf} .= $w->{e_readcb}->($e);
 			  }
-			  if ($e->{e_got} & W or length $e->{e_obuf}) {
-			      my $sent = syswrite($e->{e_fd}, $e->{e_obuf},
-						  length($e->{e_obuf}));
+			  if ($e->{e_got} & W or length $w->{e_obuf}) {
+			      my $sent = syswrite($w->{e_fd}, $w->{e_obuf},
+						  length($w->{e_obuf}));
 			      if (!defined $sent) {
-				  close $e->{e_fd};
-				  $e->cancel;
+				  close $w->{e_fd};
+				  $w->cancel;
 			      }
-			      $e->{e_obuf} = substr($e->{e_obuf}, $sent) || '';
+			      $w->{e_obuf} = substr($w->{e_obuf}, $sent) || '';
 			  }
-			  if (length $e->{e_obuf}) {
-			      $e->{e_poll} |= W;
+			  if (length $w->{e_obuf}) {
+			      $w->{e_poll} |= W;
 			  } else {
-			      $e->{e_poll} &= ~W;
+			      $w->{e_poll} &= ~W;
 			  }
 		      });
 	       $c->use_keys('e_ibuf','e_obuf','e_readcb');

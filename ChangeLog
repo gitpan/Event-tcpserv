@@ -1,0 +1,10 @@
+1999-04-16  Joshua Pritikin  <joshua.pritikin@db.com>
+
+	* Release 0.04.
+
+	* Sync with Event 0.38.
+
+1999-03-31  Joshua Pritikin  <joshua.pritikin@db.com>
+
+	* Set default e_max_cb_tm.
+

@@ -1,16 +1,16 @@
 #!./perl -w
 
 use Test qw($ntest ok plan); plan test => 5;
-use Event 0.32 qw(loop unloop);
+use Event qw(loop unloop);
 use IO::Socket;
 
 # if bind() fails, then what? XXX
 my $port = 32123;
 Event->tcpserv(e_desc => 'spin', e_port => $port, e_cb => sub {
 		   my ($e) = @_;
-		   return '' if $demo_bug;
+		   my $w = $e->w;
 		   my $ret='';
-		   while ($e->{e_ibuf} =~ s/^(.*?)\r?\n//) {
+		   while ($w->{e_ibuf} =~ s/^(.*?)\r?\n//) {
 		       my $cmd = $1;
 		       if ($cmd eq 'exit') {
 			   unloop();
@@ -33,10 +33,10 @@ if (fork == 0) {
 	|| die "can't connect to port $port on localhost: $!";
     $mom->autoflush(1);
     print $mom "yes\nno\n";
-    ok <$mom>, "yes!\n"  if !$demo_bug;
-    ok <$mom>, "maybe\n" if !$demo_bug;
+    ok <$mom>, "yes!\n";
+    ok <$mom>, "maybe\n";
     print $mom "zog\n";
-    ok <$mom>, "?\n"     if !$demo_bug;
+    ok <$mom>, "?\n";
     print $mom "exit\n";
     exit;
 }

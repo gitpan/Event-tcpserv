@@ -1,3 +1,5 @@
 add tests for TcpSession
 
 more (some!) documentation
+
+server side needs to know which network interface to use

@@ -19,7 +19,7 @@ sub new {
     $o->{iaddr} = inet_aton($host) || die "no host: $host";
     $o->{port} = delete $arg{port} || die "e_port is required";
     $o->{timeout} = delete $arg{timeout} || 20;
-    $o->{io} = Event->io(e_desc => "$host\@$o->{port}",
+    $o->{io} = Event->io(e_desc => "$host\@$o->{port}", e_max_cb_tm => 60,
 			 e_cb => [$o, 'io'], e_poll => R);
     $o->{connected}=1;  #assume there wont be a problem
     $o->{q} = [];
@@ -57,14 +57,15 @@ sub reconnect {
 
 sub io {
     my ($o, $e) = @_;
-    if ($e->{e_got} & T or !$e->{e_fd}) {
-	$e->{e_fd} = undef;
+    my $w=$e->w;
+    if ($e->{e_got} & T or !$w->{e_fd}) {
+	$w->{e_fd} = undef;
 	return if !$o->reconnect
     }
     my $cur = $o->{cur};
     if ($e->{e_got} & R) {
 	return $o->reconnect
-	    if !sysread $e->{e_fd}, $o->{ibuf}, 8192, length($o->{ibuf});
+	    if !sysread $w->{e_fd}, $o->{ibuf}, 8192, length($o->{ibuf});
 	#warn "raw read[$o->{ibuf}]";
 	while ($o->{ibuf} =~ s/^txn (\w+)\n(.*?)\bok\n//s) {
 	    my ($txn, $msg) = ($1,$2);
@@ -74,22 +75,22 @@ sub io {
 	    }
 	    $cur->{cb}->($msg);
 	    $cur = $o->{cur} = undef;
-	    $e->{e_timeout} = undef;
+	    $w->{e_timeout} = undef;
 	}
     }
     if ($e->{e_got} & W) {
-	my $sent = syswrite($e->{e_fd}, $cur->{op},
+	my $sent = syswrite($w->{e_fd}, $cur->{op},
 			    length($cur->{op})-$cur->{sent}, $cur->{sent});
 	return $o->reconnect
 	    if !defined $sent;
 	$cur->{sent} += $sent;
     }
     if ($cur and $cur->{sent} < length $cur->{op}) {
-	$e->{e_poll} |= W;
+	$w->{e_poll} |= W;
     } else {
-	$e->{e_poll} &= ~W;
+	$w->{e_poll} &= ~W;
 	if ($cur->{cb}) {
-	    $e->{e_timeout} = $o->{timeout};
+	    $w->{e_timeout} = $o->{timeout};
 	} else {
 	    $o->{cur} = undef;
 	    $o->process_queue
