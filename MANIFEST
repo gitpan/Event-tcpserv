@@ -6,4 +6,5 @@ README
 TODO
 lib/Event/TcpSession.pm
 lib/Event/tcpserv.pm
+t/pingpong.t
 t/spin.t

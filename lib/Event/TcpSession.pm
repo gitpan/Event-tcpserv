@@ -5,7 +5,7 @@ use Socket;
 use Symbol;
 use Event::Watcher qw(R W T);
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 # e_timeout is only set when:
 # - trying to reconnect
@@ -55,6 +55,12 @@ sub reconnect {
     1
 }
 
+sub sanitize {
+    my ($s) = @_;
+    $s =~ s/([\0-\11\13-\37\177])/sprintf("^%c",ord($1)^64)/eg;
+    $s;
+}
+
 sub io {
     my ($o, $e) = @_;
     my $w=$e->w;
@@ -64,9 +70,13 @@ sub io {
     }
     my $cur = $o->{cur};
     if ($e->{e_got} & R) {
+	my $buf='';
+	
 	return $o->reconnect
-	    if !sysread $w->{e_fd}, $o->{ibuf}, 8192, length($o->{ibuf});
-	#warn "raw read[$o->{ibuf}]";
+	    if !sysread $w->{e_fd}, $buf, 8192;
+	warn "'$w->{e_desc}' R[".sanitize($buf)."]\n"
+	    if $w->{e_debug} + $Event::DebugLevel >= 3;
+	$o->{ibuf} .= $buf;
 	while ($o->{ibuf} =~ s/^txn (\w+)\n(.*?)\bok\n//s) {
 	    my ($txn, $msg) = ($1,$2);
 	    if ($txn ne $cur->{txn}) {
@@ -78,11 +88,14 @@ sub io {
 	    $w->{e_timeout} = undef;
 	}
     }
-    if ($e->{e_got} & W) {
+    if ($e->{e_got} & W and $cur->{sent} < length $cur->{op}) {
 	my $sent = syswrite($w->{e_fd}, $cur->{op},
 			    length($cur->{op})-$cur->{sent}, $cur->{sent});
 	return $o->reconnect
 	    if !defined $sent;
+	warn("'$w->{e_desc}' W[".
+	     sanitize(substr($cur->{op}, $cur->{sent}, $sent))."]\n")
+	    if $w->{e_debug} + $Event::DebugLevel >= 3;
 	$cur->{sent} += $sent;
     }
     if ($cur and $cur->{sent} < length $cur->{op}) {

@@ -6,9 +6,15 @@ use Socket;
 use Event 0.38;
 use Event::Watcher qw(R W T);
 use vars qw($VERSION);
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 'Event::Watcher'->register;
+
+sub sanitize {
+    my ($s) = @_;
+    $s =~ s/([\0-\11\13-\37\177])/sprintf("^%c",ord($1)^64)/eg;
+    $s;
+}
 
 sub new {
     shift if @_ & 1;
@@ -44,18 +50,24 @@ sub new {
 			      return;
 			  }
 			  if ($e->{e_got} & R) {
-			      if (!sysread $w->{e_fd}, $w->{e_ibuf}, 8192,
-				  length($w->{e_ibuf}))
-			      {
+			      my $buf='';
+			      if (!sysread $w->{e_fd}, $buf, 8192) {
 				  close $w->{e_fd};
 				  $w->cancel;
 				  return;
 			      }
+			      warn "'$w->{e_desc}' R[".sanitize($buf)."]\n"
+				  if $w->{e_debug}+$Event::DebugLevel >= 3;
+			      $w->{e_ibuf} .= $buf;
 			      $w->{e_obuf} .= $w->{e_readcb}->($e);
 			  }
-			  if ($e->{e_got} & W or length $w->{e_obuf}) {
+			  if ($e->{e_got} & W and length $w->{e_obuf}) {
 			      my $sent = syswrite($w->{e_fd}, $w->{e_obuf},
 						  length($w->{e_obuf}));
+			      warn("'$w->{e_desc}' W[".
+				   sanitize(substr($w->{e_obuf}, 0, $sent)).
+				   "]\n")
+				  if $w->{e_debug} +$Event::DebugLevel >= 3;
 			      if (!defined $sent) {
 				  close $w->{e_fd};
 				  $w->cancel;
